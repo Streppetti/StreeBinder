@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stree's TCG Binder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Inter:wght@400;600;700&family=Playfair+Display:ital,wght@1,600;1,700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-image: url('https://images.unsplash.com/photo-1542273917363-3b1817f69a5d?q=80&w=2000&auto=format&fit=crop'); /* Magical forest */
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            color: #f3f4f6;
+            margin: 0;
+            min-height: 100vh;
+        }
+
+        .bg-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, rgba(8, 54, 79, 0.85) 0%, rgba(10, 15, 30, 0.95) 100%);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            z-index: -1;
+        }
+
+        /* Header Styles */
+        .poke-header {
+            background-color: #08364F; /* Deep Blue */
+            border-bottom: 4px solid #1e40af;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            position: relative;
+        }
+        
+        .poke-header::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #3b82f6, transparent);
+        }
+
+        .holo-text {
+            font-family: 'Cinzel Decorative', cursive;
+            background: linear-gradient(110deg, #ffd700 0%, #ffb6c1 20%, #87cefa 40%, #ff69b4 60%, #ffd700 80%, #ffb6c1 100%);
+            background-size: 200% auto;
+            color: transparent;
+            -webkit-background-clip: text;
+            background-clip: text;
+            animation: shimmer 4s linear infinite;
+            filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.8));
+        }
+
+        .subtitle {
+            font-family: 'Playfair Display', serif;
+            font-style: italic;
+            color: #93c5fd;
+            letter-spacing: 1px;
+        }
+
+        @keyframes shimmer {
+            to { background-position: 200% center; }
+        }
+
+        /* Binder & Pocket Styles */
+        .binder-page {
+            background: #111827;
+            border-radius: 16px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), inset 0 0 0 2px #374151, inset 0 0 20px rgba(0,0,0,0.5);
+            padding: 1.5rem;
+            max-width: 900px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .pocket {
+            position: relative;
+            aspect-ratio: 2.5 / 3.5;
+            background-color: #0a0a0a;
+            border-radius: 10px;
+            border: 2px solid #374151;
+            overflow: hidden;
+            box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.03);
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .pocket::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 35%, rgba(255,255,255,0) 65%, rgba(255,255,255,0.05) 100%);
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .pocket:hover {
+            transform: translateY(-4px) scale(1.03);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.6), 0 0 15px rgba(59, 130, 246, 0.4);
+            border-color: #3b82f6;
+            z-index: 20;
+        }
+
+        .pocket.empty:hover .add-icon {
+            transform: scale(1.2) rotate(90deg);
+            color: #3b82f6;
+        }
+
+        .card-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .card-img.loaded {
+            opacity: 1;
+        }
+
+        .add-icon {
+            font-size: 2rem;
+            color: #4b5563;
+            transition: all 0.3s ease;
+        }
+
+        /* Pagination Buttons */
+        .page-btn {
+            background: linear-gradient(180deg, #1e3a8a, #1e40af);
+            border: 1px solid #3b82f6;
+            color: white;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .page-btn:hover:not(:disabled) {
+            background: linear-gradient(180deg, #2563eb, #1d4ed8);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(59, 130, 246, 0.4);
+        }
+        .page-btn:disabled {
+            background: #374151;
+            border-color: #4b5563;
+            color: #9ca3af;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        /* Modals */
+        .modal {
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(8px);
+        }
+        .modal.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal-content {
+            transform: scale(0.9);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .modal.active .modal-content {
+            transform: scale(1);
+        }
+
+        /* Loader */
+        .loader {
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        /* Custom Scrollbar for results */
+        #search-results::-webkit-scrollbar { width: 8px; }
+        #search-results::-webkit-scrollbar-track { background: #1f2937; border-radius: 4px; }
+        #search-results::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        #search-results::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+    </style>
+</head>
+<body class="pb-16">
+    <div class="bg-overlay"></div>
+
+    <header class="poke-header py-6 px-4 mb-8">
+        <div class="max-w-6xl mx-auto flex flex-col items-center justify-center text-center">
+            <h1 class="text-5xl md:text-6xl font-black mb-2 holo-text">
+                Stree
+            </h1>
+            <p class="text-xl md:text-2xl subtitle">TCG Binder</p>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4">
+        <div class="binder-page">
+            <!-- Binder Rings Decoration -->
+            <div class="hidden md:flex absolute -left-6 top-0 bottom-0 flex-col justify-around py-16 z-30">
+                <div class="w-8 h-4 rounded-full border-2 border-gray-600 bg-gray-400 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)]"></div>
+                <div class="w-8 h-4 rounded-full border-2 border-gray-600 bg-gray-400 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)]"></div>
+                <div class="w-8 h-4 rounded-full border-2 border-gray-600 bg-gray-400 shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)]"></div>
+            </div>
+
+            <!-- The Grid -->
+            <div id="binder-grid" class="grid grid-cols-3 gap-3 md:gap-5">
+                <!-- Pockets injected by JS -->
+            </div>
+        </div>
+
+        <!-- Pagination Controls -->
+        <div class="max-w-[900px] mx-auto mt-8 flex items-center justify-between px-4 bg-gray-900/80 backdrop-blur rounded-full py-3 shadow-lg border border-gray-700">
+            <button id="prev-btn" class="page-btn px-6 py-2 rounded-full font-semibold focus:outline-none focus:ring-2 focus:ring-blue-400 flex items-center gap-2" onclick="changePage(-1)">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+                </svg>
+                Anterior
+            </button>
+            
+            <div class="text-gray-300 font-medium font-mono text-lg flex items-center gap-2">
+                Página <span id="current-page-text" class="text-white font-bold bg-blue-900/50 px-3 py-1 rounded-md">1</span> de 40
+            </div>
+            
+            <button id="next-btn" class="page-btn px-6 py-2 rounded-full font-semibold focus:outline-none focus:ring-2 focus:ring-blue-400 flex items-center gap-2" onclick="changePage(1)">
+                Siguiente
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                </svg>
+            </button>
+        </div>
+    </main>
+
+    <!-- Search Modal -->
+    <div id="search-modal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-black/90">
+        <div class="modal-content bg-gray-800 rounded-xl border border-gray-700 w-full max-w-2xl mx-4 overflow-hidden flex flex-col max-h-[85vh] shadow-2xl">
+            <div class="p-4 border-b border-gray-700 bg-gray-900 flex justify-between items-center">
+                <h2 class="text-xl font-bold text-white">Buscar Carta (TCGdex)</h2>
+                <button onclick="closeModals()" class="text-gray-400 hover:text-white transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <div class="p-4 bg-gray-800 flex gap-2">
+                <input type="text" id="search-input" placeholder="Ej: Pikachu, Charizard, Mew..." class="flex-1 bg-gray-900 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500 transition-colors" onkeypress="if(event.key === 'Enter') performSearch()">
+                <button onclick="performSearch()" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2">
+                    Buscar
+                </button>
+            </div>
+            
+            <div id="search-status" class="px-4 py-2 text-sm text-gray-400 hidden"></div>
+            
+            <div id="search-results" class="flex-1 overflow-y-auto p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 bg-gray-800">
+                <!-- Results injected here -->
+                <div class="col-span-full text-center text-gray-500 py-8">
+                    Usa el buscador para encontrar cartas y añadirlas a tu binder.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- View/Remove Modal -->
+    <div id="view-modal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-black/95">
+        <button class="absolute top-6 right-6 text-gray-400 hover:text-white transition-colors z-50" onclick="closeModals()">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
+        <div class="modal-content relative flex flex-col items-center">
+            <img id="view-image" src="" alt="Carta Ampliada" class="max-h-[75vh] w-auto rounded-xl shadow-[0_0_40px_rgba(255,255,255,0.2)] mb-6">
+            <button onclick="removeCurrentCard()" class="bg-red-600 hover:bg-red-500 text-white px-8 py-3 rounded-full font-bold shadow-lg transition-transform hover:scale-105 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                </svg>
+                Quitar del Binder
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Binder State Constants
+        const TOTAL_CARDS = 360;
+        const CARDS_PER_PAGE = 9;
+        const TOTAL_PAGES = TOTAL_CARDS / CARDS_PER_PAGE;
+        
+        // State Variables
+        let currentPage = 1;
+        let activeSlotIndex = null;
+        let binderState = new Array(TOTAL_CARDS).fill(null);
+        let allTcgDexCards = []; // Cache for API results
+
+        // DOM Elements
+        const grid = document.getElementById('binder-grid');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const pageText = document.getElementById('current-page-text');
+        
+        // Modals
+        const searchModal = document.getElementById('search-modal');
+        const viewModal = document.getElementById('view-modal');
+
+        // Initialization
+        function init() {
+            renderPage();
+            updatePaginationUI();
+            preloadTcgDexData(); // Background fetch to speed up search
+        }
+
+        // Render the current 3x3 grid
+        function renderPage() {
+            grid.innerHTML = '';
+            const startIndex = (currentPage - 1) * CARDS_PER_PAGE;
+            
+            for (let i = 0; i < CARDS_PER_PAGE; i++) {
+                const absoluteIndex = startIndex + i;
+                const card = binderState[absoluteIndex];
+                
+                const pocket = document.createElement('div');
+                pocket.className = 'pocket ' + (card ? 'filled' : 'empty');
+                pocket.onclick = () => handlePocketClick(absoluteIndex);
+                
+                if (card) {
+                    pocket.innerHTML = `<img src="${card.image}" alt="${card.name}" class="card-img" onload="this.classList.add('loaded')">`;
+                } else {
+                    pocket.innerHTML = `<div class="add-icon">+</div>`;
+                }
+                
+                grid.appendChild(pocket);
+            }
+        }
+
+        // Pagination Logic
+        function changePage(delta) {
+            const newPage = currentPage + delta;
+            if (newPage >= 1 && newPage <= TOTAL_PAGES) {
+                currentPage = newPage;
+                renderPage();
+                updatePaginationUI();
+            }
+        }
+
+        function updatePaginationUI() {
+            pageText.textContent = currentPage;
+            prevBtn.disabled = currentPage === 1;
+            nextBtn.disabled = currentPage === TOTAL_PAGES;
+        }
+
+        // Handle clicking a pocket
+        function handlePocketClick(absoluteIndex) {
+            activeSlotIndex = absoluteIndex;
+            const card = binderState[absoluteIndex];
+            
+            if (card) {
+                // View Mode
+                document.getElementById('view-image').src = card.highResImage || card.image;
+                viewModal.classList.add('active');
+            } else {
+                // Add Mode
+                document.getElementById('search-input').value = '';
+                document.getElementById('search-results').innerHTML = '<div class="col-span-full text-center text-gray-500 py-8">Busca una carta para añadirla a este espacio.</div>';
+                document.getElementById('search-status').classList.add('hidden');
+                searchModal.classList.add('active');
+                setTimeout(() => document.getElementById('search-input').focus(), 100);
+            }
+            document.body.style.overflow = 'hidden'; // Prevent scrolling
+        }
+
+        function closeModals() {
+            searchModal.classList.remove('active');
+            viewModal.classList.remove('active');
+            document.body.style.overflow = '';
+            activeSlotIndex = null;
+        }
+
+        // TCGdex API Logic (Spanish)
+        async function preloadTcgDexData() {
+            try {
+                // Fetch basic list of all cards for rapid local filtering
+                const res = await fetch('https://api.tcgdex.net/v2/es/cards');
+                if (res.ok) {
+                    allTcgDexCards = await res.json();
+                }
+            } catch (e) {
+                console.error("Failed to preload TCGdex data", e);
+            }
+        }
+
+        async function performSearch() {
+            const query = document.getElementById('search-input').value.trim().toLowerCase();
+            if (!query) return;
+
+            const resultsContainer = document.getElementById('search-results');
+            const statusContainer = document.getElementById('search-status');
+            
+            resultsContainer.innerHTML = '<div class="col-span-full flex justify-center py-12"><div class="loader"></div></div>';
+            statusContainer.textContent = 'Buscando...';
+            statusContainer.classList.remove('hidden');
+
+            try {
+                let results = [];
+                // Use cached data if available for instant search
+                if (allTcgDexCards.length > 0) {
+                    results = allTcgDexCards.filter(c => c.name && c.name.toLowerCase().includes(query)).slice(0, 40);
+                } else {
+                    // Fallback to fetch if cache failed
+                    const res = await fetch('https://api.tcgdex.net/v2/es/cards');
+                    const data = await res.json();
+                    allTcgDexCards = data;
+                    results = data.filter(c => c.name && c.name.toLowerCase().includes(query)).slice(0, 40);
+                }
+
+                // Filter out cards without images
+                results = results.filter(c => c.image);
+
+                if (results.length === 0) {
+                    resultsContainer.innerHTML = '<div class="col-span-full text-center text-gray-400 py-8">No se encontraron cartas. Intenta otro nombre.</div>';
+                    statusContainer.classList.add('hidden');
+                    return;
+                }
+
+                statusContainer.textContent = `Mostrando ${results.length} resultados.`;
+                resultsContainer.innerHTML = '';
+
+                results.forEach(card => {
+                    const lowResImage = `${card.image}/low.webp`;
+                    const highResImage = `${card.image}/high.webp`;
+                    
+                    const cardDiv = document.createElement('div');
+                    cardDiv.className = 'cursor-pointer hover:scale-105 transition-transform duration-200 relative group';
+                    cardDiv.innerHTML = `
+                        <div class="absolute inset-0 bg-blue-500/20 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none"></div>
+                        <img src="${lowResImage}" alt="${card.name}" class="w-full rounded-lg shadow-md bg-gray-900 border border-gray-700" loading="lazy" onerror="this.src='https://placehold.co/250x350/111827/4b5563?text=Sin+Imagen'">
+                    `;
+                    
+                    cardDiv.onclick = () => selectCard({
+                        id: card.id,
+                        name: card.name,
+                        image: lowResImage,
+                        highResImage: highResImage
+                    });
+                    
+                    resultsContainer.appendChild(cardDiv);
+                });
+
+            } catch (error) {
+                console.error(error);
+                resultsContainer.innerHTML = '<div class="col-span-full text-center text-red-400 py-8">Error al conectar con la base de datos.</div>';
+                statusContainer.classList.add('hidden');
+            }
+        }
+
+        // Add Card to State
+        function selectCard(cardData) {
+            if (activeSlotIndex !== null) {
+                binderState[activeSlotIndex] = cardData;
+                renderPage();
+                closeModals();
+            }
+        }
+
+        // Remove Card from State
+        function removeCurrentCard() {
+            if (activeSlotIndex !== null) {
+                binderState[activeSlotIndex] = null;
+                renderPage();
+                closeModals();
+            }
+        }
+
+        // Event Listeners for closing modals with Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModals();
+        });
+
+        // Run
+        init();
+    </script>
+</body>
+</html>
